@@ -157,14 +157,17 @@ var _default = {
       this.dragging = false;
       this.selection = null;
       this.dragoffx = 0;
-      this.dragoffy = 0; //Backup of self reference
+      this.dragoffy = 0;
+      this.anchorHit = false; //Backup of self reference
 
       var self = this; //binding (no class properties on parcel)
 
       this.getMouse = this.getMouse.bind(this);
       this.draw = this.draw.bind(this);
       this.addShape = this.addShape.bind(this);
-      this.clear = this.clear.bind(this); //Prevents user from accidentally selecting ("highlighting") elements with mouse.
+      this.clear = this.clear.bind(this);
+      this.drawSingleAnchor = this.drawSingleAnchor.bind(this);
+      this.anchorHitIdentifier = this.anchorHitIdentifier.bind(this); //Prevents user from accidentally selecting ("highlighting") elements with mouse.
 
       this.canvas.addEventListener("selectstart", function (e) {
         e.preventDefault();
@@ -184,13 +187,7 @@ var _default = {
           if (shapes[i].x <= mx && shapes[i].x + shapes[i].w >= mx && shapes[i].y <= my && shapes[i].y + shapes[i].h >= my) {
             //Set state accordingly
             var mySel = shapes[i];
-            console.log("[SELECTED]", mySel);
-            /**TO-DO:
-             * Draw anchors (is a new class) at edge (points) locations
-             * Give anchors awareness of being clicked
-             * 
-             */
-            // alert(JSON.stringify(mySel))
+            console.log("[SELECTED]", mySel); // alert(JSON.stringify(mySel))
             //Create smooth dragging
 
             self.dragoffx = mx - mySel.x;
@@ -200,10 +197,18 @@ var _default = {
             self.valid = false;
             return;
           }
-        } //Deselect old selected object;
+        } //Detect anchor hit
+
+        /**
+         * Where does the anchor start and end?
+         * 
+         */
 
 
-        if (self.selection) {
+        if (self.selection && self.anchorHit) {} //Deselect old selected object;
+
+
+        if (self.selection && !self.anchorHit) {
           self.selection = null;
           self.valid = false;
         }
@@ -252,7 +257,12 @@ var _default = {
           if (this.selection != null) {
             ctx.strokeStyle = this.selectionColor;
             ctx.lineWidth = this.selectionWidth;
-            var mySel = this.selection;
+            var mySel = this.selection; //DRAW ANCHORS (NEED HIT DETECTION)
+
+            this.drawSingleAnchor(mySel.x, mySel.y);
+            this.drawSingleAnchor(mySel.x + mySel.w, mySel.y);
+            this.drawSingleAnchor(mySel.x + mySel.w, mySel.y + mySel.h);
+            this.drawSingleAnchor(mySel.x, mySel.y + mySel.h);
             ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
           } // ** Add stuff you want drawn on top all the time here **
 
@@ -293,6 +303,55 @@ var _default = {
         };
       }
     }, {
+      key: "drawSingleAnchor",
+      value: function drawSingleAnchor(x, y) {
+        var ctx = this.canvas.getContext("2d");
+        var pi2 = Math.PI * 2;
+        var resizerRadius = 8;
+        ctx.beginPath();
+        ctx.arc(x, y, resizerRadius, 0, pi2, false);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }, {
+      key: "anchorHitIdentifier",
+      value: function anchorHitIdentifier(x, y) {
+        var dx, dy; // top-left
+
+        dx = x - imageX;
+        dy = y - imageY;
+
+        if (dx * dx + dy * dy <= rr) {
+          return 0;
+        } // top-right
+
+
+        dx = x - imageRight;
+        dy = y - imageY;
+
+        if (dx * dx + dy * dy <= rr) {
+          return 1;
+        } // bottom-right
+
+
+        dx = x - imageRight;
+        dy = y - imageBottom;
+
+        if (dx * dx + dy * dy <= rr) {
+          return 2;
+        } // bottom-left
+
+
+        dx = x - imageX;
+        dy = y - imageBottom;
+
+        if (dx * dx + dy * dy <= rr) {
+          return 3;
+        }
+
+        return -1;
+      }
+    }, {
       key: "addShape",
       value: function addShape(shape) {
         this.shapes.push(shape);
@@ -322,7 +381,7 @@ var _default = {
       this.y = y || 0;
       this.w = w || 0;
       this.h = h || 0;
-      this.fill = fill || '#000';
+      this.fill = fill || "#000";
       this.draw = this.draw.bind(this);
     }
 

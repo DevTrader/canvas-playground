@@ -10,9 +10,6 @@ class Test {
 	}
 }
 
-
-
-
 export default {
 	initSmartContainerCanvas: class CanvasState {
 		constructor(canvas, width, height) {
@@ -29,6 +26,7 @@ export default {
 			this.selection = null;
 			this.dragoffx = 0;
 			this.dragoffy = 0;
+			this.anchorHit = false;
 
 			//Backup of self reference
 			const self = this;
@@ -38,6 +36,8 @@ export default {
 			this.draw = this.draw.bind(this);
 			this.addShape = this.addShape.bind(this);
 			this.clear = this.clear.bind(this);
+			this.drawSingleAnchor = this.drawSingleAnchor.bind(this);
+			this.anchorHitIdentifier = this.anchorHitIdentifier.bind(this);
 
 			//Prevents user from accidentally selecting ("highlighting") elements with mouse.
 			this.canvas.addEventListener("selectstart", function(e) {
@@ -66,13 +66,6 @@ export default {
 							const mySel = shapes[i];
 							console.log("[SELECTED]", mySel);
 
-							/**TO-DO:
-							 * Draw anchors (is a new class) at edge (points) locations
-							 * Give anchors awareness of being clicked
-							 * 
-							 */
-
-
 							// alert(JSON.stringify(mySel))
 							//Create smooth dragging
 							self.dragoffx = mx - mySel.x;
@@ -80,12 +73,26 @@ export default {
 							self.dragging = true;
 							self.selection = mySel;
 							self.valid = false;
+
 							return;
 						}
 					}
 
+					//Detect anchor hit
+					/**
+					 * Where does the anchor start and end?
+					 * 
+					 */
+
+
+
+
+					if (self.selection && self.anchorHit) {
+						
+					}
+
 					//Deselect old selected object;
-					if (self.selection) {
+					if (self.selection && !self.anchorHit) {
 						self.selection = null;
 						self.valid = false;
 					}
@@ -118,6 +125,7 @@ export default {
 
 			//Selection options and draw frequency (30ms)
 			//SELECTION OPTIONS ARE NOT ADDED YET
+
 			this.selectionColor = "#CC0000";
 			this.selectionWidth = 2;
 			this.interval = 17;
@@ -146,6 +154,14 @@ export default {
 					ctx.strokeStyle = this.selectionColor;
 					ctx.lineWidth = this.selectionWidth;
 					const mySel = this.selection;
+
+
+					//DRAW ANCHORS (NEED HIT DETECTION)
+					this.drawSingleAnchor(mySel.x, mySel.y)
+					this.drawSingleAnchor((mySel.x + mySel.w), mySel.y)
+					this.drawSingleAnchor((mySel.x + mySel.w), (mySel.y + mySel.h))
+					this.drawSingleAnchor(mySel.x, (mySel.y + mySel.h))
+
 					ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
 				}
 
@@ -182,6 +198,40 @@ export default {
 			return { x: mx, y: my };
 		}
 
+		drawSingleAnchor(x,y){
+			const ctx = this.canvas.getContext("2d");
+			const pi2=Math.PI*2;
+   	 		const resizerRadius=8;
+			ctx.beginPath();
+			ctx.arc(x,y,resizerRadius,0,pi2,false);
+			ctx.closePath();
+			ctx.fill();
+		}
+
+		anchorHitIdentifier(x,y){
+
+			let dx,dy;
+	
+			// top-left
+			dx=x-imageX;
+			dy=y-imageY;
+			if(dx*dx+dy*dy<=rr){ return(0); }
+			// top-right
+			dx=x-imageRight;
+			dy=y-imageY;
+			if(dx*dx+dy*dy<=rr){ return(1); }
+			// bottom-right
+			dx=x-imageRight;
+			dy=y-imageBottom;
+			if(dx*dx+dy*dy<=rr){ return(2); }
+			// bottom-left
+			dx=x-imageX;
+			dy=y-imageBottom;
+			if(dx*dx+dy*dy<=rr){ return(3); }
+			return(-1);
+	
+		}
+
 		addShape(shape) {
 			this.shapes.push(shape);
 			console.log(this.shapes);
@@ -197,19 +247,19 @@ export default {
 			// this.canvas.height = window.innerHeight;
 		}
 	},
-	rectShape: class Shape{
-		constructor(x, y, w, h, fill){
-		  this.x = x || 0;
-		  this.y = y || 0;
-		  this.w = w || 0;
-		  this.h = h || 0;
-		  this.fill = fill || '#000';
+	rectShape: class Shape {
+		constructor(x, y, w, h, fill) {
+			this.x = x || 0;
+			this.y = y || 0;
+			this.w = w || 0;
+			this.h = h || 0;
+			this.fill = fill || "#000";
 
-		  this.draw = this.draw.bind(this)
+			this.draw = this.draw.bind(this);
 		}
-		draw(ctx){
-		  ctx.fillStyle = this.fill;
-		  ctx.fillRect(this.x, this.y, this.w, this.h)
+		draw(ctx) {
+			ctx.fillStyle = this.fill;
+			ctx.fillRect(this.x, this.y, this.w, this.h);
 		}
-	  }
+	}
 };
