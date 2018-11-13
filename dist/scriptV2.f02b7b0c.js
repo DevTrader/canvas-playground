@@ -158,7 +158,10 @@ var _default = {
       this.selection = null;
       this.dragoffx = 0;
       this.dragoffy = 0;
-      this.anchorHit = false; //Backup of self reference
+      this.wasAnchorHit = false;
+      this.draggingResizer = null;
+      this.resizerRadius = 8;
+      this.anchorId = null; //Backup of self reference
 
       var self = this; //binding (no class properties on parcel)
 
@@ -184,7 +187,7 @@ var _default = {
         for (var i = l - 1; i >= 0; i--) {
           console.log("[SCREENER]", shapes[i].x + shapes[i].w >= mx); //If the mouse pos is within the element x position + its width AND element y position + its height, it is selected, prioritizes the one on "top" (last added element)
 
-          if (shapes[i].x <= mx && shapes[i].x + shapes[i].w >= mx && shapes[i].y <= my && shapes[i].y + shapes[i].h >= my) {
+          if (shapes[i].x - 8 <= mx && shapes[i].x + 8 + shapes[i].w >= mx && shapes[i].y - 8 <= my && shapes[i].y + 8 + shapes[i].h >= my) {
             //Set state accordingly
             var mySel = shapes[i];
             console.log("[SELECTED]", mySel); // alert(JSON.stringify(mySel))
@@ -195,6 +198,16 @@ var _default = {
             self.dragging = true;
             self.selection = mySel;
             self.valid = false;
+            var anchorHit = self.anchorHitIdentifier(mx, my);
+
+            if (anchorHit > -1) {
+              self.wasAnchorHit = true;
+              self.anchorId = anchorHit;
+            } else {
+              self.wasAnchorHit = false;
+            }
+
+            console.log('ANCHOR', anchorHit);
             return;
           }
         } //Detect anchor hit
@@ -205,16 +218,19 @@ var _default = {
          */
 
 
-        if (self.selection && self.anchorHit) {} //Deselect old selected object;
+        if (self.selection && self.wasAnchorHit) {
+          //may not be necessary
+          self.dragging = true;
+        } //Deselect old selected object;
 
 
-        if (self.selection && !self.anchorHit) {
+        if (self.selection && !self.wasAnchorHit) {
           self.selection = null;
           self.valid = false;
         }
       }, true);
       this.canvas.addEventListener("mousemove", function (e) {
-        if (self.dragging) {
+        if (self.dragging && !self.wasAnchorHit) {
           var mouse = self.getMouse(e); //Drag elementfrom where it was clicked;
 
           console.log("[DRAGGING]", self.dragoffx);
@@ -222,9 +238,47 @@ var _default = {
           self.selection.y = mouse.y - self.dragoffy;
           self.valid = false;
         }
+
+        if (self.dragging && self.wasAnchorHit) {
+          var _mouse = self.getMouse(e);
+
+          self.valid = false;
+
+          switch (self.anchorId) {
+            case 0:
+              //top-left
+              self.selection.w = self.selection.x + self.selection.w - _mouse.x;
+              self.selection.h = self.selection.y + self.selection.h - _mouse.y;
+              self.selection.x = _mouse.x;
+              self.selection.y = _mouse.y;
+              console.log('[SELF SELECT]', self.dragoffx, _mouse.x, self.selection);
+              break;
+
+            case 1:
+              //top-right
+              self.selection.w = _mouse.x - self.selection.x;
+              self.selection.h = self.selection.y + self.selection.h - _mouse.y;
+              self.selection.y = _mouse.y;
+              break;
+
+            case 2:
+              //bottom-right
+              self.selection.w = _mouse.x - self.selection.x;
+              self.selection.h = _mouse.y - self.selection.y;
+              break;
+
+            case 3:
+              //bottom-left
+              self.selection.h = _mouse.y - self.selection.y;
+              self.selection.w = self.selection.x + self.selection.w - _mouse.x;
+              self.selection.x = _mouse.x;
+              break;
+          }
+        }
       }, true);
       this.canvas.addEventListener("mouseup", function (e) {
         self.dragging = false;
+        self.wasAnchorHit = false;
       }, true); //Selection options and draw frequency (30ms)
       //SELECTION OPTIONS ARE NOT ADDED YET
 
@@ -257,13 +311,14 @@ var _default = {
           if (this.selection != null) {
             ctx.strokeStyle = this.selectionColor;
             ctx.lineWidth = this.selectionWidth;
-            var mySel = this.selection; //DRAW ANCHORS (NEED HIT DETECTION)
+            var mySel = this.selection; //Draw selection border
+
+            ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h); //DRAW ANCHORS (NEED HIT DETECTION)
 
             this.drawSingleAnchor(mySel.x, mySel.y);
             this.drawSingleAnchor(mySel.x + mySel.w, mySel.y);
             this.drawSingleAnchor(mySel.x + mySel.w, mySel.y + mySel.h);
             this.drawSingleAnchor(mySel.x, mySel.y + mySel.h);
-            ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
           } // ** Add stuff you want drawn on top all the time here **
 
 
@@ -307,43 +362,46 @@ var _default = {
       value: function drawSingleAnchor(x, y) {
         var ctx = this.canvas.getContext("2d");
         var pi2 = Math.PI * 2;
-        var resizerRadius = 8;
         ctx.beginPath();
-        ctx.arc(x, y, resizerRadius, 0, pi2, false);
+        ctx.arc(x, y, this.resizerRadius, 0, pi2, false);
         ctx.closePath();
-        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.fill(); // ctx.fillStyle = '#000';
+        // ctx.fillRect(x, y, 15, 15, 0, 0, false);
       }
     }, {
       key: "anchorHitIdentifier",
       value: function anchorHitIdentifier(x, y) {
+        var mySel = this.selection;
+        var rr = this.resizerRadius * this.resizerRadius;
         var dx, dy; // top-left
 
-        dx = x - imageX;
-        dy = y - imageY;
+        dx = x - mySel.x;
+        dy = y - mySel.y;
 
         if (dx * dx + dy * dy <= rr) {
           return 0;
         } // top-right
 
 
-        dx = x - imageRight;
-        dy = y - imageY;
+        dx = x - (mySel.x + mySel.w);
+        dy = y - mySel.y;
 
         if (dx * dx + dy * dy <= rr) {
           return 1;
         } // bottom-right
 
 
-        dx = x - imageRight;
-        dy = y - imageBottom;
+        dx = x - (mySel.x + mySel.w);
+        dy = y - (mySel.y + mySel.h);
 
         if (dx * dx + dy * dy <= rr) {
           return 2;
         } // bottom-left
 
 
-        dx = x - imageX;
-        dy = y - imageBottom;
+        dx = x - mySel.x;
+        dy = y - (mySel.y + mySel.h);
 
         if (dx * dx + dy * dy <= rr) {
           return 3;
@@ -446,7 +504,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50693" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54051" + '/');
 
   ws.onmessage = function (event) {
     var data = JSON.parse(event.data);

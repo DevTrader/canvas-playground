@@ -26,7 +26,10 @@ export default {
 			this.selection = null;
 			this.dragoffx = 0;
 			this.dragoffy = 0;
-			this.anchorHit = false;
+			this.wasAnchorHit = false;
+			this.draggingResizer = null;
+			this.resizerRadius = 8;
+			this.anchorId = null;
 
 			//Backup of self reference
 			const self = this;
@@ -57,11 +60,13 @@ export default {
 
 					const l = shapes.length;
 
+					
+
 					//Loop through created elements (shapes) and check if they are in the mouse position.
 					for (let i = l - 1; i >= 0; i--) {
 						console.log("[SCREENER]", shapes[i].x + shapes[i].w >= mx);
 						//If the mouse pos is within the element x position + its width AND element y position + its height, it is selected, prioritizes the one on "top" (last added element)
-						if (shapes[i].x <= mx && shapes[i].x + shapes[i].w >= mx && shapes[i].y <= my && shapes[i].y + shapes[i].h >= my) {
+						if (shapes[i].x - 8 <= mx && shapes[i].x + 8 + shapes[i].w >= mx && shapes[i].y - 8 <= my && shapes[i].y + 8 + shapes[i].h >= my) {
 							//Set state accordingly
 							const mySel = shapes[i];
 							console.log("[SELECTED]", mySel);
@@ -74,6 +79,17 @@ export default {
 							self.selection = mySel;
 							self.valid = false;
 
+							const anchorHit = self.anchorHitIdentifier(mx, my);
+
+							if(anchorHit > -1){
+								self.wasAnchorHit = true
+								self.anchorId = anchorHit
+							} else {
+								self.wasAnchorHit = false
+							}
+
+							console.log('ANCHOR',anchorHit)
+
 							return;
 						}
 					}
@@ -85,14 +101,13 @@ export default {
 					 */
 
 
-
-
-					if (self.selection && self.anchorHit) {
-						
+					if (self.selection && self.wasAnchorHit) {
+						//may not be necessary
+						self.dragging = true;
 					}
 
 					//Deselect old selected object;
-					if (self.selection && !self.anchorHit) {
+					if (self.selection && !self.wasAnchorHit) {
 						self.selection = null;
 						self.valid = false;
 					}
@@ -103,7 +118,7 @@ export default {
 			this.canvas.addEventListener(
 				"mousemove",
 				function(e) {
-					if (self.dragging) {
+					if (self.dragging && !self.wasAnchorHit) {
 						const mouse = self.getMouse(e);
 						//Drag elementfrom where it was clicked;
 						console.log("[DRAGGING]", self.dragoffx);
@@ -111,6 +126,36 @@ export default {
 						self.selection.y = mouse.y - self.dragoffy;
 						self.valid = false;
 					}
+
+					if (self.dragging && self.wasAnchorHit) {
+						const mouse = self.getMouse(e);
+						self.valid = false;
+						switch(self.anchorId){
+							case 0: //top-left
+								self.selection.w = (self.selection.x + self.selection.w) - mouse.x;
+								self.selection.h = (self.selection.y + self.selection.h) - mouse.y;
+								self.selection.x = mouse.x ;
+								self.selection.y = mouse.y ;
+							console.log('[SELF SELECT]', self.dragoffx, mouse.x , self.selection)
+								break;
+							case 1: //top-right
+								self.selection.w = mouse.x - self.selection.x;
+								self.selection.h = (self.selection.y + self.selection.h) - mouse.y;
+								self.selection.y = mouse.y ;
+								break;
+							case 2: //bottom-right
+								self.selection.w = mouse.x - self.selection.x;
+								self.selection.h = mouse.y - self.selection.y;
+								break;
+							case 3: //bottom-left
+								self.selection.h = mouse.y - self.selection.y;
+								self.selection.w = (self.selection.x + self.selection.w) - mouse.x;
+								self.selection.x = mouse.x ;
+								break;
+						}
+						
+					}
+
 				},
 				true
 			);
@@ -119,6 +164,7 @@ export default {
 				"mouseup",
 				function(e) {
 					self.dragging = false;
+					self.wasAnchorHit = false;
 				},
 				true
 			);
@@ -154,7 +200,8 @@ export default {
 					ctx.strokeStyle = this.selectionColor;
 					ctx.lineWidth = this.selectionWidth;
 					const mySel = this.selection;
-
+					//Draw selection border
+					ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
 
 					//DRAW ANCHORS (NEED HIT DETECTION)
 					this.drawSingleAnchor(mySel.x, mySel.y)
@@ -162,7 +209,6 @@ export default {
 					this.drawSingleAnchor((mySel.x + mySel.w), (mySel.y + mySel.h))
 					this.drawSingleAnchor(mySel.x, (mySel.y + mySel.h))
 
-					ctx.strokeRect(mySel.x, mySel.y, mySel.w, mySel.h);
 				}
 
 				// ** Add stuff you want drawn on top all the time here **
@@ -201,32 +247,35 @@ export default {
 		drawSingleAnchor(x,y){
 			const ctx = this.canvas.getContext("2d");
 			const pi2=Math.PI*2;
-   	 		const resizerRadius=8;
 			ctx.beginPath();
-			ctx.arc(x,y,resizerRadius,0,pi2,false);
+			ctx.arc(x,y,this.resizerRadius,0,pi2,false);
 			ctx.closePath();
+			ctx.fillStyle = '#000';
 			ctx.fill();
+			// ctx.fillStyle = '#000';
+			// ctx.fillRect(x, y, 15, 15, 0, 0, false);
 		}
 
 		anchorHitIdentifier(x,y){
-
+			const mySel = this.selection;
+			const rr = this.resizerRadius * this.resizerRadius;
 			let dx,dy;
 	
 			// top-left
-			dx=x-imageX;
-			dy=y-imageY;
+			dx=x-mySel.x;
+			dy=y-mySel.y;
 			if(dx*dx+dy*dy<=rr){ return(0); }
 			// top-right
-			dx=x-imageRight;
-			dy=y-imageY;
+			dx=x-(mySel.x + mySel.w);
+			dy=y-mySel.y;
 			if(dx*dx+dy*dy<=rr){ return(1); }
 			// bottom-right
-			dx=x-imageRight;
-			dy=y-imageBottom;
+			dx=x-(mySel.x + mySel.w);
+			dy=y-(mySel.y + mySel.h);
 			if(dx*dx+dy*dy<=rr){ return(2); }
 			// bottom-left
-			dx=x-imageX;
-			dy=y-imageBottom;
+			dx=x-mySel.x;
+			dy=y-(mySel.y + mySel.h);
 			if(dx*dx+dy*dy<=rr){ return(3); }
 			return(-1);
 	
