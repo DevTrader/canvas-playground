@@ -170,7 +170,8 @@ var _default = {
       this.addShape = this.addShape.bind(this);
       this.clear = this.clear.bind(this);
       this.drawSingleAnchor = this.drawSingleAnchor.bind(this);
-      this.anchorHitIdentifier = this.anchorHitIdentifier.bind(this); //Prevents user from accidentally selecting ("highlighting") elements with mouse.
+      this.anchorHitIdentifier = this.anchorHitIdentifier.bind(this);
+      this.avoidNegative = this.avoidNegative.bind(this); //Prevents user from accidentally selecting ("highlighting") elements with mouse.
 
       this.canvas.addEventListener("selectstart", function (e) {
         e.preventDefault();
@@ -186,6 +187,7 @@ var _default = {
 
         for (var i = l - 1; i >= 0; i--) {
           console.log("[SCREENER]", shapes[i].x + shapes[i].w >= mx); //If the mouse pos is within the element x position + its width AND element y position + its height, it is selected, prioritizes the one on "top" (last added element)
+          //Added 8 in order to extend hit area to anchor points
 
           if (shapes[i].x - 8 <= mx && shapes[i].x + 8 + shapes[i].w >= mx && shapes[i].y - 8 <= my && shapes[i].y + 8 + shapes[i].h >= my) {
             //Set state accordingly
@@ -230,6 +232,7 @@ var _default = {
         }
       }, true);
       this.canvas.addEventListener("mousemove", function (e) {
+        //Shape drag
         if (self.dragging && !self.wasAnchorHit) {
           var mouse = self.getMouse(e); //Drag elementfrom where it was clicked;
 
@@ -237,7 +240,12 @@ var _default = {
           self.selection.x = mouse.x - self.dragoffx;
           self.selection.y = mouse.y - self.dragoffy;
           self.valid = false;
-        }
+        } //Anchor drag handler
+
+        /**
+         * TO DO: HANDLE THE CONDITIONALS MORE GRACEFULLY, should position lock? Try getting their width bellow 0 from both sides
+         */
+
 
         if (self.dragging && self.wasAnchorHit) {
           var _mouse = self.getMouse(e);
@@ -247,8 +255,8 @@ var _default = {
           switch (self.anchorId) {
             case 0:
               //top-left
-              self.selection.w = self.selection.x + self.selection.w - _mouse.x;
-              self.selection.h = self.selection.y + self.selection.h - _mouse.y;
+              self.selection.w = self.selection.x + self.selection.w - _mouse.x < 0 ? 1 : self.selection.x + self.selection.w - _mouse.x;
+              self.selection.h = self.selection.y + self.selection.h - _mouse.y < 0 ? 1 : self.selection.y + self.selection.h - _mouse.y;
               self.selection.x = _mouse.x;
               self.selection.y = _mouse.y;
               console.log('[SELF SELECT]', self.dragoffx, _mouse.x, self.selection);
@@ -256,21 +264,21 @@ var _default = {
 
             case 1:
               //top-right
-              self.selection.w = _mouse.x - self.selection.x;
-              self.selection.h = self.selection.y + self.selection.h - _mouse.y;
+              self.selection.w = _mouse.x - self.selection.x < 0 ? 1 : _mouse.x - self.selection.x;
+              self.selection.h = self.selection.y + self.selection.h - _mouse.y < 0 ? 1 : self.selection.y + self.selection.h - _mouse.y;
               self.selection.y = _mouse.y;
               break;
 
             case 2:
               //bottom-right
-              self.selection.w = _mouse.x - self.selection.x;
-              self.selection.h = _mouse.y - self.selection.y;
+              self.selection.w = _mouse.x - self.selection.x < 0 ? 1 : _mouse.x - self.selection.x;
+              self.selection.h = _mouse.y - self.selection.y < 0 ? 1 : _mouse.y - self.selection.y;
               break;
 
             case 3:
               //bottom-left
-              self.selection.h = _mouse.y - self.selection.y;
-              self.selection.w = self.selection.x + self.selection.w - _mouse.x;
+              self.selection.h = _mouse.y - self.selection.y < 0 ? 1 : _mouse.y - self.selection.y;
+              self.selection.w = self.selection.x + self.selection.w - _mouse.x < 0 ? 1 : self.selection.x + self.selection.w - _mouse.x;
               self.selection.x = _mouse.x;
               break;
           }
@@ -424,6 +432,17 @@ var _default = {
 
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.width); // this.canvas.width = window.innerWidth;
         // this.canvas.height = window.innerHeight;
+      }
+    }, {
+      key: "avoidNegative",
+      value: function avoidNegative() {
+        if (self.selection.w <= 0) {
+          self.selection.w = 10;
+        }
+
+        if (self.selection.h <= 0) {
+          self.selection.h = 10;
+        }
       }
     }]);
 

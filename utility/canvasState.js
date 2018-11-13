@@ -41,6 +41,7 @@ export default {
 			this.clear = this.clear.bind(this);
 			this.drawSingleAnchor = this.drawSingleAnchor.bind(this);
 			this.anchorHitIdentifier = this.anchorHitIdentifier.bind(this);
+			this.avoidNegative = this.avoidNegative.bind(this);
 
 			//Prevents user from accidentally selecting ("highlighting") elements with mouse.
 			this.canvas.addEventListener("selectstart", function(e) {
@@ -66,6 +67,7 @@ export default {
 					for (let i = l - 1; i >= 0; i--) {
 						console.log("[SCREENER]", shapes[i].x + shapes[i].w >= mx);
 						//If the mouse pos is within the element x position + its width AND element y position + its height, it is selected, prioritizes the one on "top" (last added element)
+						//Added 8 in order to extend hit area to anchor points
 						if (shapes[i].x - 8 <= mx && shapes[i].x + 8 + shapes[i].w >= mx && shapes[i].y - 8 <= my && shapes[i].y + 8 + shapes[i].h >= my) {
 							//Set state accordingly
 							const mySel = shapes[i];
@@ -118,6 +120,7 @@ export default {
 			this.canvas.addEventListener(
 				"mousemove",
 				function(e) {
+					//Shape drag
 					if (self.dragging && !self.wasAnchorHit) {
 						const mouse = self.getMouse(e);
 						//Drag elementfrom where it was clicked;
@@ -127,30 +130,36 @@ export default {
 						self.valid = false;
 					}
 
+					//Anchor drag handler
+
+					/**
+					 * TO DO: HANDLE THE CONDITIONALS MORE GRACEFULLY, should position lock? Try getting their width bellow 0 from both sides
+					 */
 					if (self.dragging && self.wasAnchorHit) {
 						const mouse = self.getMouse(e);
 						self.valid = false;
 						switch(self.anchorId){
 							case 0: //top-left
-								self.selection.w = (self.selection.x + self.selection.w) - mouse.x;
-								self.selection.h = (self.selection.y + self.selection.h) - mouse.y;
-								self.selection.x = mouse.x ;
-								self.selection.y = mouse.y ;
+								self.selection.w = (((self.selection.x + self.selection.w) - mouse.x) < 0) ? 1 : (self.selection.x + self.selection.w) - mouse.x;
+								self.selection.h = (((self.selection.y + self.selection.h) - mouse.y) < 0) ? 1 : (self.selection.y + self.selection.h) - mouse.y;
+								self.selection.x =  mouse.x ;
+								self.selection.y =  mouse.y ;
 							console.log('[SELF SELECT]', self.dragoffx, mouse.x , self.selection)
 								break;
 							case 1: //top-right
-								self.selection.w = mouse.x - self.selection.x;
-								self.selection.h = (self.selection.y + self.selection.h) - mouse.y;
+								self.selection.w = ((mouse.x - self.selection.x) < 0) ? 1 : mouse.x - self.selection.x;
+								self.selection.h = (((self.selection.y + self.selection.h) - mouse.y) < 0) ? 1 : (self.selection.y + self.selection.h) - mouse.y;
 								self.selection.y = mouse.y ;
 								break;
 							case 2: //bottom-right
-								self.selection.w = mouse.x - self.selection.x;
-								self.selection.h = mouse.y - self.selection.y;
+								self.selection.w = ((mouse.x - self.selection.x) < 0) ? 1 : mouse.x - self.selection.x;
+								self.selection.h = ((mouse.y - self.selection.y) < 0) ? 1 : mouse.y - self.selection.y;
 								break;
 							case 3: //bottom-left
-								self.selection.h = mouse.y - self.selection.y;
-								self.selection.w = (self.selection.x + self.selection.w) - mouse.x;
-								self.selection.x = mouse.x ;
+								
+								self.selection.h = ((mouse.y - self.selection.y) < 0) ? 1 : mouse.y - self.selection.y;
+								self.selection.w = (((self.selection.x + self.selection.w) - mouse.x) < 0)? 1: (self.selection.x + self.selection.w) - mouse.x;
+								self.selection.x =  mouse.x ;
 								break;
 						}
 						
@@ -294,6 +303,15 @@ export default {
 			ctx.clearRect(0, 0, this.canvas.width, this.canvas.width);
 			// this.canvas.width = window.innerWidth;
 			// this.canvas.height = window.innerHeight;
+		}
+
+		avoidNegative(){
+			if(self.selection.w <= 0){
+				self.selection.w = 10;
+			}
+			if(self.selection.h <= 0){
+				self.selection.h = 10;
+			}
 		}
 	},
 	rectShape: class Shape {

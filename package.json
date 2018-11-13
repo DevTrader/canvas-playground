@@ -13,6 +13,5 @@
     "parcel-bundler": "^1.10.3"
   },
   "dependencies": {
-    "konva": "^2.5.1"
   }
 }
