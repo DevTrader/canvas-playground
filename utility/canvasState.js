@@ -28,7 +28,7 @@ export default {
 			this.dragoffy = 0;
 			this.wasAnchorHit = false;
 			this.draggingResizer = null;
-			this.resizerRadius = 8;
+			this.resizerRadius = 16;
 			this.anchorId = null;
 
 			//Backup of self reference
@@ -68,7 +68,9 @@ export default {
 						console.log("[SCREENER]", shapes[i].x + shapes[i].w >= mx);
 						//If the mouse pos is within the element x position + its width AND element y position + its height, it is selected, prioritizes the one on "top" (last added element)
 						//Added 8 in order to extend hit area to anchor points
-						if (shapes[i].x - 8 <= mx && shapes[i].x + 8 + shapes[i].w >= mx && shapes[i].y - 8 <= my && shapes[i].y + 8 + shapes[i].h >= my) {
+						const hitAreaExtension = self.resizerRadius/2
+						
+						if (shapes[i].x - hitAreaExtension <= mx && shapes[i].x + hitAreaExtension + shapes[i].w >= mx && shapes[i].y - hitAreaExtension <= my && shapes[i].y + hitAreaExtension + shapes[i].h >= my) {
 							//Set state accordingly
 							const mySel = shapes[i];
 							console.log("[SELECTED]", mySel);
@@ -256,13 +258,18 @@ export default {
 		drawSingleAnchor(x,y){
 			const ctx = this.canvas.getContext("2d");
 			const pi2=Math.PI*2;
-			ctx.beginPath();
-			ctx.arc(x,y,this.resizerRadius,0,pi2,false);
-			ctx.closePath();
-			ctx.fillStyle = '#000';
+			const side = this.resizerRadius;
+
+			ctx.fillStyle = '#fff';
 			ctx.fill();
-			// ctx.fillStyle = '#000';
-			// ctx.fillRect(x, y, 15, 15, 0, 0, false);
+
+			ctx.strokeStyle = '#000';
+			ctx.lineWidth = this.selectionWidth;
+			//Draw Anchor border
+			ctx.strokeRect(x - (side/2), y  - (side/2), side, side);
+
+
+			//ctx.fillRect(x - (side/2), y  - (side/2), side, side, 0, 0, false);
 		}
 
 		anchorHitIdentifier(x,y){
